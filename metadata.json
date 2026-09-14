@@ -1,0 +1,6 @@
+{
+  "name": "Doc2Markdown - Chuyển đổi tài liệu & OCR tiếng Việt sang Markdown",
+  "description": "Chuyển đổi PDF, DOCX, XLSX, ảnh sang Markdown sạch 100% offline, tối ưu cho AI, trích xuất chính xác số văn bản và ngày tháng hành chính.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

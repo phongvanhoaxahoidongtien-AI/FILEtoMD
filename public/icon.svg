@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#2563eb" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <!-- Background with subtle border -->
+  <rect width="512" height="512" rx="108" fill="url(#bgGrad)" />
+  <rect width="508" height="508" x="2" y="2" rx="106" fill="none" stroke="#334155" stroke-width="3" stroke-opacity="0.6" />
+  
+  <!-- Main Document Base -->
+  <g filter="url(#glow)">
+    <path d="M128 88 C128 70.3 142.3 56 160 56 L296 56 L384 144 L384 424 C384 441.7 369.7 456 352 456 L160 456 C142.3 456 128 441.7 128 424 Z" fill="#1e293b" stroke="#475569" stroke-width="4" />
+    <!-- Document Fold -->
+    <path d="M296 56 L296 128 C296 136.8 303.2 144 312 144 L384 144 Z" fill="#334155" />
+  </g>
+
+  <!-- Markdown "M" and arrow symbol -->
+  <g fill="none" stroke="url(#primaryGrad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <!-- M shape -->
+    <path d="M184 310 L184 210 L230 260 L276 210 L276 310" />
+    <!-- Down Arrow -->
+    <path d="M336 210 L336 305" />
+    <path d="M312 282 L336 308 L360 282" />
+  </g>
+
+  <!-- Text lines on doc -->
+  <rect x="176" y="140" width="80" height="10" rx="5" fill="#64748b" opacity="0.8" />
+  <rect x="176" y="166" width="104" height="8" rx="4" fill="#475569" opacity="0.6" />
+
+  <!-- Shield Badge (100% Offline / Local) -->
+  <g transform="translate(320, 360)">
+    <circle cx="28" cy="28" r="42" fill="#020617" stroke="#1e293b" stroke-width="3" />
+    <path d="M28 10 L44 17 C44 30 37 42 28 47 C19 42 12 30 12 17 Z" fill="url(#accentGrad)" />
+    <!-- Checkmark inside shield -->
+    <path d="M22 28 L26 32 L34 23" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>
