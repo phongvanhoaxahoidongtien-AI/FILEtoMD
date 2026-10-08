@@ -166,9 +166,9 @@ export const FileList: React.FC<FileListProps> = ({
                             Ngày: {doc.metadata.issueDate}
                           </span>
                         )}
-                        {doc.metadata.issuingAgency && (
-                          <span className="px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/60 text-slate-300 truncate max-w-[200px]" title={doc.metadata.issuingAgency}>
-                            {doc.metadata.issuingAgency}
+                        {(doc.metadata.issuingAgency || doc.metadata.parentAgency) && (
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/60 text-slate-300 truncate max-w-[240px]" title={`${doc.metadata.parentAgency ? `${doc.metadata.parentAgency} - ` : ''}${doc.metadata.issuingAgency || ''}`}>
+                            {doc.metadata.parentAgency ? `${doc.metadata.parentAgency} / ` : ''}{doc.metadata.issuingAgency || doc.metadata.parentAgency}
                           </span>
                         )}
                       </div>

@@ -260,6 +260,19 @@ export default function App() {
     setActiveDocId(docItem.id);
   };
 
+  // Delete single history record
+  const handleDeleteHistoryRecord = (id: string) => {
+    setHistoryRecords(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      try {
+        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
   // Clear history
   const handleClearHistory = () => {
     setHistoryRecords([]);
@@ -297,6 +310,7 @@ export default function App() {
           onFilesSelected={handleFilesSelected}
           onLoadSample={handleLoadSample}
           isProcessing={isProcessing}
+          hasDocuments={documents.length > 0}
         />
 
         {/* Batch File Queue List */}
@@ -342,6 +356,7 @@ export default function App() {
         onClose={() => setHistoryOpen(false)}
         records={historyRecords}
         onSelectRecord={handleSelectRecord}
+        onDeleteRecord={handleDeleteHistoryRecord}
         onClearHistory={handleClearHistory}
       />
 

@@ -24,7 +24,7 @@ export interface AdminMetadata {
   signer?: string;               // e.g. "Chủ tịch", "Nguyễn Văn A"
   location?: string;             // e.g. "Hà Nội", "TP. Hồ Chí Minh"
   confidenceScore?: number;      // 0 - 100%
-  extractedFromZone?: 'header' | 'text-layer' | 'ocr-full' | 'ocr-header';
+  extractedFromZone?: 'header' | 'text-layer' | 'ocr-full' | 'ocr-header' | 'column-layout';
 }
 
 export interface ProcessingProgress {

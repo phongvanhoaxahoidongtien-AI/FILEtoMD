@@ -8,6 +8,7 @@ interface HistoryModalProps {
   onClose: () => void;
   records: HistoryRecord[];
   onSelectRecord: (record: HistoryRecord) => void;
+  onDeleteRecord: (id: string) => void;
   onClearHistory: () => void;
 }
 
@@ -16,6 +17,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   onClose,
   records,
   onSelectRecord,
+  onDeleteRecord,
   onClearHistory
 }) => {
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
@@ -45,9 +47,10 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
               <button
                 onClick={onClearHistory}
                 className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition"
+                title="Xóa toàn bộ lịch sử"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Xóa lịch sử</span>
+                <span>Xóa toàn bộ</span>
               </button>
             )}
             <button
@@ -87,8 +90,13 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                   </div>
 
                   {/* Metadata preview */}
-                  {rec.metadata && (rec.metadata.documentNumber || rec.metadata.issueDate) && (
+                  {rec.metadata && (rec.metadata.documentNumber || rec.metadata.issueDate || rec.metadata.issuingAgency) && (
                     <div className="mt-1.5 flex flex-wrap gap-2 text-[11px]">
+                      {rec.metadata.issuingAgency && (
+                        <span className="text-amber-300 font-medium truncate max-w-[200px]">
+                          {rec.metadata.issuingAgency}
+                        </span>
+                      )}
                       {rec.metadata.documentNumber && (
                         <span className="text-cyan-300 font-mono">
                           Số: {rec.metadata.documentNumber}
@@ -135,6 +143,15 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                     title="Tải file .md"
                   >
                     <Download className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Delete individual record */}
+                  <button
+                    onClick={() => onDeleteRecord(rec.id)}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                    title="Xóa văn bản này khỏi lịch sử"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

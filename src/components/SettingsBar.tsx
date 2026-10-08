@@ -123,7 +123,7 @@ export const SettingsBar: React.FC<SettingsBarProps> = ({
             </div>
           </label>
 
-          {/* Toggle: YAML Frontmatter & AI guide */}
+          {/* Toggle: Filename Header */}
           <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/40 cursor-pointer transition-colors">
             <input
               type="checkbox"
@@ -135,10 +135,10 @@ export const SettingsBar: React.FC<SettingsBarProps> = ({
             <div>
               <span className="font-semibold text-slate-200 block flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                YAML Frontmatter cho AI
+                Tiêu đề tên file (# Tên file)
               </span>
               <span className="text-[11px] text-slate-400 block mt-0.5 leading-tight">
-                Tạo thẻ thông tin ở đầu file Markdown tối ưu cho ChatGPT, Claude, Gemini
+                Chỉ để tên file ở đầu và toàn bộ nội dung văn bản (không thêm thông tin rác)
               </span>
             </div>
           </label>

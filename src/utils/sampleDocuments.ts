@@ -1,38 +1,10 @@
 import { DocumentItem } from '../types';
 
 export function createSampleVietnameseDocument(): DocumentItem {
-  const sampleMarkdown = `---
-title: "V/v phê duyệt Đề án Chuyển đổi số và ứng dụng Trí tuệ nhân tạo tỉnh giai đoạn 2026 - 2030"
-original_filename: "123_QD_UBND_PheDuyetDeAnChuyenDoiSo2026.pdf"
-file_type: "PDF"
-document_number: "123/QĐ-UBND"
-issue_date: "14/09/2026"
-issuing_agency: "ỦY BAN NHÂN DÂN TỈNH"
-parent_agency: "TỈNH QUẢNG NINH"
-signer: "TM. ỦY BAN NHÂN DÂN - CHỦ TỊCH: Nguyễn Văn An (Đã ký số)"
-total_pages: 3
-processed_offline: true
-processed_at: "2026-09-14T05:08:00Z"
----
+  const sampleMarkdown = `# 123_QD_UBND_PheDuyetDeAnChuyenDoiSo2026.pdf
 
-> **[HƯỚNG DẪN DÀNH CHO AI - ChatGPT / Claude / Gemini]**
-> Tài liệu được xử lý 100% Client-side Offline. Sử dụng cấu trúc và thông tin số hiệu, ngày ban hành đã chuẩn hóa bên dưới để tóm tắt, tra cứu hoặc trích dẫn pháp lý chính xác.
-
-### THÔNG TIN VĂN BẢN
-
-**Cơ quan cấp trên:** TỈNH QUẢNG NINH
-
-**Cơ quan ban hành:** ỦY BAN NHÂN DÂN TỈNH
-
-**Số văn bản:** 123/QĐ-UBND
-
-**Ngày ban hành:** Quảng Ninh, ngày 14/09/2026
-
-**Trích yếu:** V/v phê duyệt Đề án Chuyển đổi số và ứng dụng Trí tuệ nhân tạo tỉnh giai đoạn 2026 - 2030
-
-**Người ký:** TM. ỦY BAN NHÂN DÂN - CHỦ TỊCH: Nguyễn Văn An (Đã ký số)
-
----
+| **TỈNH QUẢNG NINH**<br>**ỦY BAN NHÂN DÂN TỈNH**<br>Số: 123/QĐ-UBND | **CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM**<br>**Độc lập - Tự do - Hạnh phúc**<br>*Quảng Ninh, ngày 14 tháng 09 năm 2026* |
+| :--- | :--- |
 
 # QUYẾT ĐỊNH
 ## Về việc phê duyệt Đề án Chuyển đổi số và ứng dụng Trí tuệ nhân tạo tỉnh giai đoạn 2026 - 2030

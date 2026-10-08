@@ -202,21 +202,26 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
               </div>
             )}
 
-            {/* Issuing agency */}
-            {activeDoc.metadata.issuingAgency && (
+            {/* Issuing agency (Khung bên trái 2 dòng: cấp trên & cơ quan ban hành) */}
+            {(activeDoc.metadata.issuingAgency || activeDoc.metadata.parentAgency) && (
               <div className="flex items-start justify-between gap-2 p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 sm:col-span-2 lg:col-span-1">
                 <div className="min-w-0 flex-1">
                   <span className="text-[11px] text-slate-400 block flex items-center gap-1">
                     <Building className="w-3 h-3 text-blue-400" />
-                    Cơ quan ban hành
+                    Cơ quan ban hành (Khung bên trái)
                   </span>
-                  <span className="font-semibold text-xs text-slate-200 mt-0.5 block truncate" title={activeDoc.metadata.issuingAgency}>
-                    {activeDoc.metadata.parentAgency ? `${activeDoc.metadata.parentAgency} - ` : ''}{activeDoc.metadata.issuingAgency}
+                  {activeDoc.metadata.parentAgency && (
+                    <span className="text-[11px] text-slate-400 mt-0.5 block truncate" title={`Cơ quan quản lý cấp trên: ${activeDoc.metadata.parentAgency}`}>
+                      Cấp trên: <strong className="text-slate-300 font-semibold">{activeDoc.metadata.parentAgency}</strong>
+                    </span>
+                  )}
+                  <span className="font-semibold text-xs text-slate-100 mt-0.5 block truncate" title={`Cơ quan ban hành văn bản: ${activeDoc.metadata.issuingAgency || ''}`}>
+                    Ban hành: <strong className="text-cyan-300 font-semibold">{activeDoc.metadata.issuingAgency || activeDoc.metadata.parentAgency}</strong>
                   </span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleCopyFieldValue('agency', activeDoc.metadata.issuingAgency!)}
+                  onClick={() => handleCopyFieldValue('agency', `${activeDoc.metadata.parentAgency ? `${activeDoc.metadata.parentAgency}\n` : ''}${activeDoc.metadata.issuingAgency || ''}`)}
                   title="Sao chép cơ quan ban hành"
                   className="p-1 rounded text-slate-400 hover:text-blue-300 hover:bg-slate-800 flex-shrink-0"
                 >
