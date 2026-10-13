@@ -3,44 +3,42 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { createWorker, Worker } from 'tesseract.js';
 import { AdminMetadata, ConversionOptions, ProcessingProgress } from '../../types';
 import {
-  extractVietnameseAdminMetadata,
+  cropHeaderCanvasColumns,
   extractFromTwoColumns,
-  cropHeaderCanvasColumns
+  extractVietnameseAdminMetadata
 } from '../vietnameseAdminExtractor';
 
-// Initialize PDF.js worker using local bundled worker URL
+// Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-// Shared Tesseract Worker instance for batch efficiency
-let sharedTesseractWorker: { worker: Worker; lang: string } | null = null;
+// Cached Tesseract worker
+let globalTesseractWorker: Worker | null = null;
+let currentLanguage = '';
 
-async function getTesseractWorker(lang: string, onStatus?: (status: string, progress: number) => void): Promise<Worker> {
-  const tesseractLang = lang === 'vi+en' || lang === 'vie+eng' ? 'vie+eng' : lang === 'en' || lang === 'eng' ? 'eng' : 'vie';
-
-  if (sharedTesseractWorker && sharedTesseractWorker.lang === tesseractLang) {
-    return sharedTesseractWorker.worker;
+async function getTesseractWorker(
+  language = 'vie+eng',
+  onProgress?: (status: string) => void
+): Promise<Worker> {
+  if (globalTesseractWorker && currentLanguage === language) {
+    return globalTesseractWorker;
   }
 
-  if (sharedTesseractWorker) {
-    try {
-      await sharedTesseractWorker.worker.terminate();
-    } catch {
-      // ignore
-    }
-    sharedTesseractWorker = null;
+  if (globalTesseractWorker) {
+    await globalTesseractWorker.terminate();
+    globalTesseractWorker = null;
   }
 
-  if (onStatus) onStatus('Khởi động động cơ OCR Tesseract...', 5);
-
-  const worker = await createWorker(tesseractLang, 1, {
+  const worker = await createWorker(language, 1, {
     logger: (m) => {
-      if (m.status === 'recognizing text' && m.progress !== undefined && onStatus) {
-        onStatus(`Đang nhận dạng OCR: ${Math.round(m.progress * 100)}%`, Math.round(m.progress * 100));
+      if (m.status === 'recognizing text' && onProgress) {
+        const percent = Math.round((m.progress || 0) * 100);
+        onProgress(`Đang nhận diện chữ viết OCR (${percent}%)...`);
       }
     },
   });
 
-  sharedTesseractWorker = { worker, lang: tesseractLang };
+  globalTesseractWorker = worker;
+  currentLanguage = language;
   return worker;
 }
 
@@ -59,20 +57,101 @@ interface PDFTextItem {
   fontName?: string;
 }
 
+interface DigitalSigInfo {
+  signer?: string;
+  signingDate?: string;
+  docNumber?: string;
+}
+
+/**
+ * Extracts digital signature and certificate information from PDF annotations
+ */
+async function extractDigitalSignatureInfo(page: any): Promise<DigitalSigInfo> {
+  const result: DigitalSigInfo = {};
+  try {
+    const annotations = await page.getAnnotations();
+    for (const anno of annotations) {
+      const isSig = anno.subtype === 'Widget' && (anno.fieldType === 'Sig' || anno.alternativeText || anno.contents);
+      if (isSig) {
+        const textContent = [anno.contents, anno.alternativeText, anno.fieldValue]
+          .filter(t => typeof t === 'string' && t.trim().length > 0)
+          .join('\n');
+
+        if (textContent) {
+          // Signer name
+          const signerMatch = textContent.match(/(?:Ký bởi|Signed by|Người ký|Ký điện tử bởi|Cơ quan ký)\s*[:]\s*([^\r\n,]+)/i);
+          if (signerMatch && signerMatch[1]) {
+            result.signer = signerMatch[1].trim();
+          } else if (!result.signer && (anno.alternativeText || anno.contents)) {
+            result.signer = (anno.alternativeText || anno.contents).replace(/[\r\n]+/g, ' ').trim();
+          }
+
+          // Signing date
+          const dateMatch = textContent.match(/(?:Ngày\s*ký|Thời\s*gian\s*ký|Date|Signing\s*time)\s*[:;\s\-]*\s*([0-3]?[0-9][\/\-\.][0-1]?[0-9][\/\-\.][12][0-9]{3})/i) ||
+            textContent.match(/(?:Ngày\s*ký|Thời\s*gian\s*ký)\s*[:;\s\-]*\s*([0-3]?[0-9])\s+(?:tháng|thang)\s+([0-1]?[0-9])\s+(?:năm|nam)\s+([12][0-9]{3})/i);
+          if (dateMatch) {
+            if (dateMatch[2] && dateMatch[3]) {
+              const d = dateMatch[1].padStart(2, '0');
+              const m = dateMatch[2].padStart(2, '0');
+              const y = dateMatch[3];
+              result.signingDate = `${d}/${m}/${y}`;
+            } else {
+              result.signingDate = dateMatch[1];
+            }
+          }
+
+          // Document number in digital signature stamp
+          const docNumMatch = textContent.match(/(?:Số\s*ký\s*hiệu|Số\s*văn\s*bản|Số)\s*[:]\s*([0-9]{1,6}(?:\/[0-9]{2,4})?\s*\/\s*[A-Za-zĐđ0-9_.\-&]+(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i);
+          if (docNumMatch && docNumMatch[1]) {
+            result.docNumber = docNumMatch[1].trim();
+          }
+        }
+
+        // Modification date fallback
+        if (!result.signingDate && (anno.modificationDate || anno.M)) {
+          const modStr = (anno.modificationDate || anno.M) as string;
+          const pdfDateMatch = modStr.match(/D:([12][0-9]{3})([0-1][0-9])([0-3][0-9])/);
+          if (pdfDateMatch) {
+            const y = pdfDateMatch[1];
+            const m = pdfDateMatch[2];
+            const d = pdfDateMatch[3];
+            result.signingDate = `${d}/${m}/${y}`;
+          }
+        }
+      }
+    }
+  } catch {
+    // ignore annotation errors
+  }
+  return result;
+}
+
 /**
  * Extracts metadata from native PDF text items on Page 1 using exact 2D coordinate analysis.
- * Vietnamese administrative standard (Decree 30/2020):
- * - Top Left (x < 55%, top 38% y): Issuing Agency + Document Number (Số: 123/QĐ-UBND, Số: 4119/SKHCN-CNgSHTT)
- * - Top Right (x >= 42%, top 38% y): National Motto + Location & Issue Date (Thanh Hóa, ngày 07/09/2026)
- * - Center / Body: Title & Subject (V/v..., QUYẾT ĐỊNH)
+ * - Khung bên trái: Cơ quan cấp trên (dòng 1), Cơ quan ban hành (dòng 2), Số ký hiệu (dòng 3)
+ * - Khung bên phải: Quốc hiệu (dòng 1), Tiêu ngữ (dòng 2), Địa danh & Ngày tháng ban hành (dòng 3)
  */
 function extractMetadataFromNativePage(
   items: PDFTextItem[],
   pageWidth: number,
-  pageHeight: number
+  pageHeight: number,
+  digitalSigs?: DigitalSigInfo
 ): AdminMetadata {
-  // In PDF coordinate system, y starts at bottom. Top 38% of page is y >= pageHeight * 0.62
-  const headerCutoffY = pageHeight * 0.60;
+  // Find dynamic header cutoff above the main document title/subject
+  let markerY = 0;
+  for (const it of items) {
+    if (!it.str) continue;
+    const s = it.str.trim();
+    if (/^(?:QUYẾT\s*ĐỊNH|THÔNG\s*BÁO|KẾ\s*HOẠCH|BÁO\s*CÁO|CHỈ\s*THỊ|NGHỊ\s*QUYẾT|TỜ\s*TRÌNH|KẾT\s*LUẬN|LỆNH|ĐIỀU\s*LỆ)/i.test(s) ||
+        /^(?:V\/v|Về\s*việc|Kính\s*gửi|Căn\s*cứ)/i.test(s)) {
+      if (it.transform[5] > pageHeight * 0.40) {
+        markerY = Math.max(markerY, it.transform[5]);
+      }
+    }
+  }
+
+  // Header zone: above the marker or top 48% of page
+  const headerCutoffY = markerY > 0 ? markerY - 8 : pageHeight * 0.52;
   const columnDividerX = pageWidth * 0.52;
 
   const leftHeaderItems = items.filter(
@@ -87,9 +166,9 @@ function extractMetadataFromNativePage(
 
   const leftText = itemsToSortedLines(leftHeaderItems);
   const rightText = itemsToSortedLines(rightHeaderItems);
-  const bodyText = itemsToSortedLines(bodyItems.slice(0, 45));
+  const bodyText = itemsToSortedLines(bodyItems.slice(0, 50));
 
-  const meta = extractFromTwoColumns(leftText, rightText, bodyText);
+  const meta = extractFromTwoColumns(leftText, rightText, bodyText, digitalSigs);
   meta.extractedFromZone = 'text-layer';
   return meta;
 }
@@ -102,7 +181,7 @@ function itemsToSortedLines(items: PDFTextItem[]): string {
   const sorted = [...items].sort((a, b) => {
     const yA = a.transform[5];
     const yB = b.transform[5];
-    if (Math.abs(yA - yB) > 7) {
+    if (Math.abs(yA - yB) > 8.5) {
       return yB - yA; // top to bottom
     }
     return a.transform[4] - b.transform[4]; // left to right
@@ -116,7 +195,7 @@ function itemsToSortedLines(items: PDFTextItem[]): string {
   for (const item of sorted) {
     const itemY = item.transform[5];
     const itemX = item.transform[4];
-    if (Math.abs(itemY - currentY) > 7) {
+    if (Math.abs(itemY - currentY) > 8.5) {
       if (currentLine.trim()) {
         lines.push(currentLine.trim());
       }
@@ -158,6 +237,26 @@ export async function parsePDFDocument(
   const thumbnails: string[] = [];
   const pageMarkdowns: string[] = [];
   let detectedMetadata: AdminMetadata = { confidenceScore: 0 };
+  let digitalSigInfo: DigitalSigInfo = {};
+
+  // Check PDF document metadata for digital creation/mod date
+  try {
+    const metaObj = await pdf.getMetadata();
+    const info = (metaObj?.info || {}) as any;
+    if (info) {
+      if (info.ModDate && typeof info.ModDate === 'string') {
+        const m = info.ModDate.match(/D:([12][0-9]{3})([0-1][0-9])([0-3][0-9])/);
+        if (m) {
+          digitalSigInfo.signingDate = `${m[3]}/${m[2]}/${m[1]}`;
+        }
+      }
+      if (info.Author && typeof info.Author === 'string') {
+        digitalSigInfo.signer = info.Author.trim();
+      }
+    }
+  } catch {
+    // ignore
+  }
 
   // Scale resolution based on options
   const scale = options.resolutionMode === 'fast' ? 1.5 : options.resolutionMode === 'high' ? 2.5 : 2.0;
@@ -174,6 +273,21 @@ export async function parsePDFDocument(
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale });
 
+    // Extract digital signature info from page annotations
+    if (pageNum === 1 || pageNum === totalPages) {
+      const pageSigs = await extractDigitalSignatureInfo(page);
+      digitalSigInfo = { ...digitalSigInfo, ...pageSigs };
+      if (digitalSigInfo.signer) {
+        detectedMetadata.signer = digitalSigInfo.signer;
+      }
+      if (digitalSigInfo.signingDate && !detectedMetadata.issueDate) {
+        detectedMetadata.issueDate = digitalSigInfo.signingDate;
+      }
+      if (digitalSigInfo.docNumber && !detectedMetadata.documentNumber) {
+        detectedMetadata.documentNumber = digitalSigInfo.docNumber;
+      }
+    }
+
     // 1. Extract native text layer
     const textContent = await page.getTextContent();
     const textItems = textContent.items as Array<PDFTextItem>;
@@ -183,7 +297,7 @@ export async function parsePDFDocument(
     const extractedText = nonEmptyItems.map(i => i.str).join(' ');
     const hasSufficientNativeText = extractedText.length > 50;
 
-    // Render page to canvas (always needed for thumbnails & scanned pages)
+    // Render page to canvas (for thumbnails & scanned pages)
     const canvas = document.createElement('canvas');
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
@@ -204,23 +318,6 @@ export async function parsePDFDocument(
 
     let pageText = '';
 
-    // Check for digital signature annotations
-    if (pageNum === 1 || pageNum === totalPages) {
-      try {
-        const annotations = await page.getAnnotations();
-        for (const anno of annotations) {
-          if (anno.subtype === 'Widget' && (anno.fieldType === 'Sig' || anno.alternativeText)) {
-            const sigName = anno.alternativeText || anno.fieldValue || anno.contents;
-            if (sigName && typeof sigName === 'string') {
-              detectedMetadata.signer = sigName.replace(/[\r\n]+/g, ' ').trim();
-            }
-          }
-        }
-      } catch {
-        // ignore annotation errors
-      }
-    }
-
     if (hasSufficientNativeText) {
       // PAGE 1 NATIVE METADATA EXTRACTION (Exact coordinate analysis)
       if (pageNum === 1) {
@@ -231,12 +328,12 @@ export async function parsePDFDocument(
           totalPages
         });
 
-        const nativeMeta = extractMetadataFromNativePage(textItems, viewport.width, viewport.height);
+        const nativeMeta = extractMetadataFromNativePage(textItems, viewport.width, viewport.height, digitalSigInfo);
         if ((nativeMeta.confidenceScore || 0) > 0) {
           detectedMetadata = { ...nativeMeta };
         }
 
-        // If native extraction missed document number or date, run fallback OCR on top 25% header
+        // If native extraction missed document number or date, run fallback OCR on top 28% header
         if (
           options.prioritizeAdminMetadata &&
           (!detectedMetadata.documentNumber || !detectedMetadata.issueDate || (detectedMetadata.confidenceScore || 0) < 65)
@@ -249,14 +346,14 @@ export async function parsePDFDocument(
               totalPages
             });
 
-            const { leftCanvas, rightCanvas, fullHeaderCanvas } = cropHeaderCanvasColumns(canvas, 0.28);
+            const { leftCanvas, rightCanvas, fullHeaderCanvas } = cropHeaderCanvasColumns(canvas, 0.30);
             const ocrWorker = await getTesseractWorker(options.ocrLanguage, (msg) => {
               onProgress({ stage: `OCR tiêu đề: ${msg}`, percent: pagePercent, currentPage: 1, totalPages });
             });
 
             const leftOcr = await ocrWorker.recognize(leftCanvas);
             const rightOcr = await ocrWorker.recognize(rightCanvas);
-            let ocrMeta = extractFromTwoColumns(leftOcr.data.text, rightOcr.data.text);
+            let ocrMeta = extractFromTwoColumns(leftOcr.data.text, rightOcr.data.text, undefined, digitalSigInfo);
 
             if (!ocrMeta.documentNumber) {
               const fullOcr = await ocrWorker.recognize(fullHeaderCanvas);
@@ -305,68 +402,62 @@ export async function parsePDFDocument(
         });
 
         try {
-          const { leftCanvas, rightCanvas, fullHeaderCanvas } = cropHeaderCanvasColumns(canvas, 0.28);
+          const { leftCanvas, rightCanvas, fullHeaderCanvas } = cropHeaderCanvasColumns(canvas, 0.30);
           const ocrWorker = await getTesseractWorker(options.ocrLanguage, (msg) => {
             onProgress({ stage: `OCR tiêu đề: ${msg}`, percent: pagePercent, currentPage: 1, totalPages });
           });
 
-          // Run OCR on Left column (Agency & Doc Number)
           const leftOcr = await ocrWorker.recognize(leftCanvas);
-          // Run OCR on Right column (National Motto & Date)
           const rightOcr = await ocrWorker.recognize(rightCanvas);
+          const ocrMeta = extractFromTwoColumns(leftOcr.data.text, rightOcr.data.text, undefined, digitalSigInfo);
 
-          let ocrMeta = extractFromTwoColumns(leftOcr.data.text, rightOcr.data.text);
+          if (ocrMeta.documentNumber) detectedMetadata.documentNumber = ocrMeta.documentNumber;
+          if (ocrMeta.issueDate) detectedMetadata.issueDate = ocrMeta.issueDate;
+          if (ocrMeta.issuingAgency) detectedMetadata.issuingAgency = ocrMeta.issuingAgency;
+          if (ocrMeta.parentAgency) detectedMetadata.parentAgency = ocrMeta.parentAgency;
+          if (ocrMeta.location) detectedMetadata.location = ocrMeta.location;
 
-          // If document number or date is not found, also scan full header
-          if (!ocrMeta.documentNumber || !ocrMeta.issueDate) {
+          if (!detectedMetadata.documentNumber) {
             const fullOcr = await ocrWorker.recognize(fullHeaderCanvas);
             const fullMeta = extractVietnameseAdminMetadata(fullOcr.data.text, true);
-            if (fullMeta.documentNumber && !ocrMeta.documentNumber) {
-              ocrMeta.documentNumber = fullMeta.documentNumber;
-            }
-            if (fullMeta.issueDate && !ocrMeta.issueDate) {
-              ocrMeta.issueDate = fullMeta.issueDate;
-            }
-          }
-
-          if ((ocrMeta.confidenceScore || 0) > (detectedMetadata.confidenceScore || 0)) {
-            detectedMetadata = { ...ocrMeta, extractedFromZone: 'ocr-header' };
+            if (fullMeta.documentNumber) detectedMetadata.documentNumber = fullMeta.documentNumber;
+            if (fullMeta.issueDate && !detectedMetadata.issueDate) detectedMetadata.issueDate = fullMeta.issueDate;
           }
         } catch (err) {
-          console.warn('Scanned PDF header OCR warning:', err);
+          console.warn('Header OCR error for scanned PDF:', err);
         }
       }
 
-      // Run full page OCR
+      // Full page OCR
       onProgress({
-        stage: `Trang ${pageNum} là ảnh quét - Đang chạy OCR Tesseract...`,
+        stage: `Đang quét OCR toàn bộ trang ${pageNum}...`,
         percent: pagePercent,
         currentPage: pageNum,
         totalPages
       });
 
-      const ocrWorker = await getTesseractWorker(options.ocrLanguage, (msg, prog) => {
-        onProgress({
-          stage: `OCR Trang ${pageNum}/${totalPages}: ${msg}`,
-          percent: Math.min(95, pagePercent + Math.round((prog || 0) * 0.1)),
-          currentPage: pageNum,
-          totalPages,
-          ocrProgress: prog
-        });
+      const ocrWorker = await getTesseractWorker(options.ocrLanguage, (msg) => {
+        onProgress({ stage: `Trang ${pageNum}: ${msg}`, percent: pagePercent, currentPage: pageNum, totalPages });
       });
 
-      const ocrResult = await ocrWorker.recognize(canvas);
-      pageText = ocrResult.data.text;
+      const fullPageOcr = await ocrWorker.recognize(canvas);
+      pageText = fullPageOcr.data.text;
 
-      if (pageNum === 1 && (detectedMetadata.confidenceScore || 0) < 60) {
-        const fullMeta = extractVietnameseAdminMetadata(pageText, false);
-        if ((fullMeta.confidenceScore || 0) > (detectedMetadata.confidenceScore || 0)) {
-          detectedMetadata = { ...detectedMetadata, ...fullMeta, extractedFromZone: 'ocr-full' };
+      // Extract general metadata if page 1 didn't find everything
+      if (pageNum === 1 && (!detectedMetadata.documentNumber || !detectedMetadata.issueDate)) {
+        const fullMeta = extractVietnameseAdminMetadata(pageText);
+        if (fullMeta.documentNumber && !detectedMetadata.documentNumber) {
+          detectedMetadata.documentNumber = fullMeta.documentNumber;
+        }
+        if (fullMeta.issueDate && !detectedMetadata.issueDate) {
+          detectedMetadata.issueDate = fullMeta.issueDate;
+        }
+        if (fullMeta.issuingAgency && !detectedMetadata.issuingAgency) {
+          detectedMetadata.issuingAgency = fullMeta.issuingAgency;
         }
       }
     }
 
-    // Wrap page content with clear Markdown markers
     pageMarkdowns.push(`<!-- PAGE_${pageNum} -->\n${pageText.trim()}`);
   }
 
@@ -393,7 +484,19 @@ function reconstructStructuredLayout(
 ): string {
   if (items.length === 0) return '';
 
-  const headerCutoffY = pageHeight * 0.60;
+  let markerY = 0;
+  for (const it of items) {
+    if (!it.str) continue;
+    const s = it.str.trim();
+    if (/^(?:QUYẾT\s*ĐỊNH|THÔNG\s*BÁO|KẾ\s*HOẠCH|BÁO\s*CÁO|CHỈ\s*THỊ|NGHỊ\s*QUYẾT|TỜ\s*TRÌNH|KẾT\s*LUẬN|LỆNH|ĐIỀU\s*LỆ)/i.test(s) ||
+        /^(?:V\/v|Về\s*việc|Kính\s*gửi|Căn\s*cứ)/i.test(s)) {
+      if (it.transform[5] > pageHeight * 0.40) {
+        markerY = Math.max(markerY, it.transform[5]);
+      }
+    }
+  }
+
+  const headerCutoffY = markerY > 0 ? markerY - 8 : pageHeight * 0.52;
   const columnDividerX = pageWidth * 0.52;
 
   // On Page 1, format the two-column administrative header cleanly
@@ -429,7 +532,7 @@ function formatBodyLines(items: Array<PDFTextItem>): string {
   const sorted = [...items].sort((a, b) => {
     const yA = a.transform[5];
     const yB = b.transform[5];
-    if (Math.abs(yA - yB) > 7) {
+    if (Math.abs(yA - yB) > 8.5) {
       return yB - yA;
     }
     return a.transform[4] - b.transform[4];
@@ -444,7 +547,7 @@ function formatBodyLines(items: Array<PDFTextItem>): string {
     const itemY = item.transform[5];
     const itemX = item.transform[4];
 
-    if (Math.abs(itemY - currentY) > 7) {
+    if (Math.abs(itemY - currentY) > 8.5) {
       if (currentLineText.trim()) {
         lines.push(currentLineText.trim());
       }
@@ -453,7 +556,7 @@ function formatBodyLines(items: Array<PDFTextItem>): string {
       currentMaxX = itemX + (item.width || 10);
     } else {
       const distance = itemX - currentMaxX;
-      if (distance > 5) {
+      if (distance > 4) {
         currentLineText += ' ' + item.str;
       } else {
         currentLineText += item.str;
@@ -466,7 +569,7 @@ function formatBodyLines(items: Array<PDFTextItem>): string {
     lines.push(currentLineText.trim());
   }
 
-  // Format into Markdown blocks
+  // Format into Markdown blocks while strictly preserving all text
   const resultBlocks: string[] = [];
   let buffer: string[] = [];
 
@@ -475,7 +578,7 @@ function formatBodyLines(items: Array<PDFTextItem>): string {
     if (!text) continue;
 
     // Detect section headings: "Điều 1.", "Chương I", "PHẦN I", "QUYẾT ĐỊNH:", "Kính gửi:"
-    if (/^(Điều\s+\d+|Chương\s+[IVXLCDM]+|Phần\s+[IVXLCDM]+|QUYẾT ĐỊNH|CHỈ THỊ|THÔNG BÁO|KẾ HOẠCH|KÍNH GỬI)/i.test(text)) {
+    if (/^(Điều\s+\d+|Chương\s+[IVXLCDM]+|Phần\s+[IVXLCDM]+|QUYẾT\s*ĐỊNH|CHỈ\s*THỊ|THÔNG\s*BÁO|KẾ\s*HOẠCH|KÍNH\s*GỬI)/i.test(text)) {
       if (buffer.length > 0) {
         resultBlocks.push(buffer.join(' '));
         buffer = [];
