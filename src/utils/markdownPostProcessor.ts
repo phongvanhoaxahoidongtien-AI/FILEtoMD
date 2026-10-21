@@ -54,12 +54,13 @@ export function buildStandardizedAdminHeader(metadata?: AdminMetadata): string {
     leftLines.push('**CƠ QUAN BAN HÀNH**');
   }
 
-  // Dòng 3 bên trái: Số ký hiệu
+  // Dòng 3 bên trái: Số ký hiệu (ngang hàng dòng thứ 3 tiêu đề quốc ngữ)
   if (hasDocNumber) {
     const cleanNum = metadata.documentNumber!.trim().replace(/^(?:Số|So|SỐ|SO)\s*[:;\s\-]*\s*/i, '');
     leftLines.push(`Số: ${cleanNum}`);
   } else {
-    leftLines.push('Số: ....../......');
+    // Mặc định để trống cách nhau, không sử dụng dấu .....
+    leftLines.push('Số: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
   }
 
   // =========================================================================
@@ -87,7 +88,8 @@ export function buildStandardizedAdminHeader(metadata?: AdminMetadata): string {
     rightLines.push(`*${locPrefix}${dateStr}*`);
   } else {
     const locPrefix = metadata.location && metadata.location.trim() ? `${metadata.location.trim()}, ` : '';
-    rightLines.push(`*${locPrefix}ngày ... tháng ... năm ...*`);
+    // Mặc định để trống cách nhau, không sử dụng dấu .....
+    rightLines.push(`*${locPrefix}ngày &nbsp;&nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp;&nbsp; năm 20&nbsp;&nbsp;&nbsp;&nbsp;*`);
   }
 
   const leftCol = leftLines.join('<br>');

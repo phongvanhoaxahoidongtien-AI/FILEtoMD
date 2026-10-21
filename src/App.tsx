@@ -273,6 +273,20 @@ export default function App() {
     });
   };
 
+  // Delete multiple history records at once
+  const handleDeleteMultipleHistoryRecords = (ids: string[]) => {
+    const idSet = new Set(ids);
+    setHistoryRecords(prev => {
+      const updated = prev.filter(r => !idSet.has(r.id));
+      try {
+        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
   // Clear history
   const handleClearHistory = () => {
     setHistoryRecords([]);
@@ -357,6 +371,7 @@ export default function App() {
         records={historyRecords}
         onSelectRecord={handleSelectRecord}
         onDeleteRecord={handleDeleteHistoryRecord}
+        onDeleteMultipleRecords={handleDeleteMultipleHistoryRecords}
         onClearHistory={handleClearHistory}
       />
 

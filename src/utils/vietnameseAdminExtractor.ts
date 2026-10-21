@@ -17,23 +17,27 @@ import { AdminMetadata } from '../types';
 
 // Regex patterns for Decision & Administrative Document Numbers (Số ký hiệu văn bản)
 export const DOC_NUMBER_PATTERNS = [
-  // 1. Explicit prefix with Decision Number priority:
+  // 1. Explicit prefix with filled or blank number (Decree 30 / template standard):
+  // Số: 123/QĐ-UBND, Số: 45/UBND-VHXH, Số:     /UBND-VHXH, Số:   /BC-UBND, Số:   /KH-UBND
+  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9\s]{0,6}\/[A-Za-zĐđ0-9_.\-&]+(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
+
+  // 2. Explicit prefix with Decision Number priority:
   // Số: 123/QĐ-UBND, Số: 1624/QĐ-TTg, Số: 25/2024/QĐ-UBND, Số: 45/QĐ-CTUBND, Số: 12/QD-UBND
   /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9]{1,6}(?:\/[0-9]{2,4})?\s*\/\s*(?:QĐ|QD)[A-Za-zĐđ0-9_.\-&]*(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
 
-  // 2. Primary format with explicit "Số:" prefix and administrative abbreviations:
+  // 3. Primary format with explicit "Số:" prefix and administrative abbreviations:
   // Số: 4119/SKHCN-CNgSHTT, Số: 12/2024/NĐ-CP, Số: 45/TB-UBND, Số: 78/BC-STNMT, Số: 456/TTg
   /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9]{1,6}(?:\/[0-9]{2,4})?\s*\/\s*[A-Za-zĐđ0-9_.\-&]+(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
 
-  // 3. Standalone Decision Number in header zone without "Số:" prefix:
+  // 4. Standalone Decision Number in header zone without "Số:" prefix:
   // 123/QĐ-UBND, 1624/QĐ-TTg, 15/2024/QĐ-UBND, 45/QĐ-STNMT, 12/QD-UBND
   /(?:^|[\s,;:(])([0-9]{1,6}(?:\/[0-9]{2,4})?\s*\/\s*(?:QĐ|QD)(?:[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)+)(?:[\s,;.)]|$)/i,
 
-  // 4. Standalone document number patterns with administrative abbreviations (Decree 30/2020 standard):
-  // 4119/SKHCN-CNgSHTT, 12/2024/NĐ-CP, 456/TTg, 789/BC-STNMT, 15/KH-UBND
+  // 5. Standalone document number patterns with administrative abbreviations (Decree 30/2020 standard):
+  // 4119/SKHCN-CNgSHTT, 12/2024/NĐ-CP, 456/TTg, 789/BC-STNMT, 15/KH-UBND, 45/UBND-VHXH
   /(?:^|[\s,;:(])([0-9]{1,6}(?:\/[0-9]{4})?\s*\/\s*(?:QĐ|QD|NĐ-CP|ND-CP|TTg|TT|TB|BC|KH|NQ|CT|KL|HD|TTr|CV|GM|NQ-HĐND|UBND|SKHCN|STNMT|SNV|STC|SKHĐT|SNNPTNT|BCT|BCA|BQP|BYT|BGDĐT|BTTTT|VPCP|VP-UBND|TTr-[\w]+|BC-[\w]+|TB-[\w]+|QĐ-[\w]+|KH-[\w]+|HD-[\w]+|GM-[\w]+)[A-Za-zĐđ0-9_.\-&]*)(?:[\s,;.)]|$)/i,
 
-  // 5. General fallback: Number / Acronym-SubAcronym, e.g. 4119/SKHCN-CNgSHTT, 123/UBND-VX
+  // 6. General fallback: Number / Acronym-SubAcronym, e.g. 4119/SKHCN-CNgSHTT, 123/UBND-VX
   /(?:^|[\s,;:(])([0-9]{1,6}\s*\/\s*[A-Za-zĐđ0-9]{2,12}(?:\s*[-–—]\s*[A-Za-zĐđ0-9&]{2,14})+)(?:[\s,;.)]|$)/
 ];
 
@@ -98,15 +102,17 @@ export function cleanAgencyName(text: string): string {
 
 /**
  * Validates that a string looks like a legitimate administrative document number
+ * Supports both assigned numbers (e.g. 123/QĐ-UBND) and template placeholders (e.g. /UBND-VHXH)
  */
 export function isValidDocNumber(num: string): boolean {
-  if (!num || num.length < 3 || num.length > 50) return false;
+  if (!num || num.length < 3 || num.length > 55) return false;
   // Must contain a slash
   if (!num.includes('/')) return false;
-  // Must start with digits
-  if (!/^\d/.test(num.trim())) return false;
-  // Must contain letters (e.g. QĐ, SKHCN, NĐ-CP, TTg)
+  // Must contain letters (e.g. QĐ, SKHCN, NĐ-CP, TTg, UBND, BC, KH, TTr...)
   if (!/[A-Za-zĐđ]/.test(num)) return false;
+  // Do not accept strings that are pure dates or web URLs
+  if (/^https?:\/\//i.test(num)) return false;
+  if (/^(?:ngày|ngay)\s+\d/i.test(num)) return false;
   // Do not accept partial matches ending with dangling hyphen or slash
   if (/[-–—/]$/.test(num.trim())) return false;
   return true;
@@ -124,6 +130,11 @@ export function normalizeDocNumber(rawNum: string): string {
 
   // Standardize QĐ (Decision) where OCR might produce QD or QÐ
   cleaned = cleaned.replace(/\/QD-/i, '/QĐ-').replace(/\/QD([A-Z])/i, '/QĐ-$1');
+
+  // If number part is blank (e.g. "/UBND-VHXH"), format neatly with spacing
+  if (cleaned.startsWith('/')) {
+    cleaned = `     ${cleaned}`;
+  }
 
   return cleaned;
 }
@@ -439,6 +450,87 @@ export function extractFromTwoColumns(
 }
 
 /**
+ * Directly inspects Line 3 under the National Motto (Quốc hiệu + Tiêu ngữ)
+ * In Vietnamese administrative documents (Decree 30/2020):
+ * - Line 1: CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+ * - Line 2: Độc lập - Tự do - Hạnh phúc
+ * - Line 3: ALWAYS contains Document Number (left) & Location + Issue Date (right)
+ */
+export function extractLine3HeaderDirectly(lines: string[]): {
+  docNumber?: string;
+  location?: string;
+  issueDate?: string;
+} {
+  let docNumber: string | undefined;
+  let location: string | undefined;
+  let issueDate: string | undefined;
+
+  // Find index of Tiêu ngữ "Độc lập - Tự do - Hạnh phúc"
+  let mottoIndex = -1;
+  for (let i = 0; i < Math.min(lines.length, 25); i++) {
+    if (/Đ[OỘ]C\s*L[AẬ]P\s*[-–—]\s*T[UỰ]\s*DO\s*[-–—]\s*H[AẠ]NH\s*PH[UÚ]C/i.test(lines[i])) {
+      mottoIndex = i;
+      break;
+    }
+  }
+
+  // If Tiêu ngữ found, the next non-divider line is Line 3 of the header block!
+  if (mottoIndex >= 0) {
+    let line3Index = -1;
+    for (let j = mottoIndex + 1; j < Math.min(lines.length, mottoIndex + 5); j++) {
+      const line = lines[j].trim();
+      if (!line || /^[-–—_.*~=]{2,}$/.test(line)) continue;
+      line3Index = j;
+      break;
+    }
+
+    if (line3Index >= 0) {
+      const line3 = lines[line3Index];
+
+      // Check for Document Number in line 3
+      for (const pattern of DOC_NUMBER_PATTERNS) {
+        const match = line3.match(pattern);
+        if (match && match[1]) {
+          const norm = normalizeDocNumber(match[1]);
+          if (isValidDocNumber(norm)) {
+            docNumber = norm;
+            break;
+          }
+        }
+      }
+
+      // Check for Location in line 3
+      const locMatch = line3.match(LOCATION_PATTERN);
+      if (locMatch && locMatch[1]) {
+        const cleanLoc = locMatch[1].replace(/^[^\w\s]+/, '').replace(/[.,;:\s]+$/, '').trim();
+        if (cleanLoc.length > 1 && cleanLoc.length < 35 && !NATIONAL_MOTTO_PATTERNS.some(p => p.test(cleanLoc))) {
+          location = cleanLoc;
+        }
+      }
+
+      // Check for Date in line 3
+      for (const pattern of DATE_PATTERNS) {
+        const match = line3.match(pattern);
+        if (match && match[1] && match[2] && match[3]) {
+          const day = match[1].padStart(2, '0');
+          const month = match[2].padStart(2, '0');
+          const year = match[3];
+          const dayNum = parseInt(day, 10);
+          const monthNum = parseInt(month, 10);
+          const yearNum = parseInt(year, 10);
+          if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12 && yearNum >= 1975 && yearNum <= 2045) {
+            issueDate = `${day}/${month}/${year}`;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return { docNumber, location, issueDate };
+}
+
+/**
  * Extract Vietnamese Administrative Document Metadata from general text
  * (splits merged two-column lines if necessary)
  */
@@ -449,6 +541,9 @@ export function extractVietnameseAdminMetadata(text: string, isHeaderOnly = fals
 
   const rawLines = text.split(/[\r\n]+/).map(l => l.trim()).filter(l => l.length > 0);
   const headerLines = isHeaderOnly ? rawLines : rawLines.slice(0, 35);
+
+  // PRIORITY CHECK: Direct extraction from Line 3 of National Motto block
+  const line3Meta = extractLine3HeaderDirectly(rawLines);
 
   const leftParts: string[] = [];
   const rightParts: string[] = [];
@@ -502,6 +597,19 @@ export function extractVietnameseAdminMetadata(text: string, isHeaderOnly = fals
     rightParts.join('\n'),
     bodyParts.join('\n')
   );
+
+  // If Line 3 direct inspection extracted document number or date, prioritize it!
+  if (line3Meta.docNumber && !result.documentNumber) {
+    result.documentNumber = line3Meta.docNumber;
+    result.confidenceScore = Math.min(100, (result.confidenceScore || 0) + 40);
+  }
+  if (line3Meta.issueDate && !result.issueDate) {
+    result.issueDate = line3Meta.issueDate;
+    result.confidenceScore = Math.min(100, (result.confidenceScore || 0) + 30);
+  }
+  if (line3Meta.location && !result.location) {
+    result.location = line3Meta.location;
+  }
 
   result.extractedFromZone = isHeaderOnly ? 'header' : 'text-layer';
 

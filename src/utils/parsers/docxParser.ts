@@ -62,6 +62,57 @@ export async function parseDocxDocument(file: File): Promise<DocxParseResult> {
     // 3. Extract administrative metadata
     const metadata = extractVietnameseAdminMetadata(rawText || markdown);
 
+    // 4. Enhance with Line 3 header extraction directly from HTML table if present
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlContent, 'text/html');
+      const firstTable = doc.querySelector('table');
+      if (firstTable) {
+        const rows = firstTable.querySelectorAll('tr');
+        let mottoRowIdx = -1;
+        for (let r = 0; r < Math.min(rows.length, 5); r++) {
+          const text = rows[r].textContent || '';
+          if (/Đ[OỘ]C\s*L[AẬ]P\s*[-–—]\s*T[UỰ]\s*DO\s*[-–—]\s*H[AẠ]NH\s*PH[UÚ]C/i.test(text)) {
+            mottoRowIdx = r;
+            break;
+          }
+        }
+
+        const line3RowIdx = mottoRowIdx >= 0 ? mottoRowIdx + 1 : (rows.length >= 3 ? 2 : -1);
+        if (line3RowIdx >= 0 && line3RowIdx < rows.length) {
+          const cells = rows[line3RowIdx].querySelectorAll('td, th');
+          if (cells.length >= 2) {
+            const leftCellText = cells[0].textContent?.trim() || '';
+            const rightCellText = cells[1].textContent?.trim() || '';
+
+            // Left cell of line 3: Document Number (Số: .../...)
+            const docNumMatch = leftCellText.match(/(?:Số|So|SỐ|SO|No\.?)\s*[:;.\s\-]*\s*([0-9\s]{0,6}\/[A-Za-zĐđ0-9_.\-&]+(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i);
+            if (docNumMatch && docNumMatch[1]) {
+              metadata.documentNumber = docNumMatch[1].trim();
+              metadata.confidenceScore = Math.min(100, (metadata.confidenceScore || 0) + 40);
+            }
+
+            // Right cell of line 3: Location and Issue Date
+            const locMatch = rightCellText.match(/([A-ZĐÀ-ỹ][\w\s.,'-]{1,40}?),\s*(?:ngày|ngay|\d)/i);
+            if (locMatch && locMatch[1]) {
+              metadata.location = locMatch[1].replace(/^[^\w\s]+/, '').replace(/[.,;:\s]+$/, '').trim();
+            }
+
+            const dateMatch = rightCellText.match(/(?:ngày|ngay)\s*([0-3]?[0-9])\s*(?:tháng|thang|\/|-|\.)\s*([0-1]?[0-9])\s*(?:năm|nam|\/|-|\.)\s*([12][0-9]{3})/i);
+            if (dateMatch && dateMatch[1] && dateMatch[2] && dateMatch[3]) {
+              const d = dateMatch[1].padStart(2, '0');
+              const m = dateMatch[2].padStart(2, '0');
+              const y = dateMatch[3];
+              metadata.issueDate = `${d}/${m}/${y}`;
+              metadata.confidenceScore = Math.min(100, (metadata.confidenceScore || 0) + 30);
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore DOM parser issues
+    }
+
     return {
       markdown: markdown.trim(),
       metadata,
