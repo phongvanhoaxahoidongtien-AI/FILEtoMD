@@ -16,28 +16,32 @@ import { AdminMetadata } from '../types';
  */
 
 // Regex patterns for Decision & Administrative Document Numbers (Số ký hiệu văn bản)
+// Tuân thủ đầy đủ 29 loại văn bản hành chính (NĐ 30/2020/NĐ-CP) và 15 loại văn bản Đảng (HD 05-HD/VPTW)
 export const DOC_NUMBER_PATTERNS = [
-  // 1. Explicit prefix with filled or blank number (Decree 30 / template standard):
-  // Số: 123/QĐ-UBND, Số: 45/UBND-VHXH, Số:     /UBND-VHXH, Số:   /BC-UBND, Số:   /KH-UBND
-  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9\s]{0,6}\/[A-Za-zĐđ0-9_.\-&]+(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
+  // 1. Văn bản Đảng (theo Hướng dẫn 05-HD/VPTW): Số: 05-HD/VPTW, Số: 12-KL/TW, Số: 52-NQ/TW, Số: 01-CT/TW, Số: 10-QĐ/TU, Số: 15-BC/ĐU
+  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9\s]{0,6}\s*[-–—]\s*[A-Za-zĐđ0-9&]+(?:\s*[\/]\s*[A-Za-zĐđ0-9_.\-&]+)+)/i,
 
-  // 2. Explicit prefix with Decision Number priority:
+  // 2. Văn bản hành chính có tiền tố "Số:" (Nghị định 30/2020/NĐ-CP) - gồm cả số đã điền và mẫu để trống số:
+  // Số: 123/QĐ-UBND, Số: 45/UBND-VHXH, Số:     /UBND-VHXH, Số:   /BC-UBND, Số:   /KH-UBND, Số: 12/2024/NĐ-CP
+  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9\s]{0,6}(?:\/[0-9]{2,4})?\s*\/\s*[A-Za-zĐđ0-9_.\-&]+(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
+
+  // 3. Văn bản hành chính có tiền tố Quyết định đặc thù:
   // Số: 123/QĐ-UBND, Số: 1624/QĐ-TTg, Số: 25/2024/QĐ-UBND, Số: 45/QĐ-CTUBND, Số: 12/QD-UBND
   /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9]{1,6}(?:\/[0-9]{2,4})?\s*\/\s*(?:QĐ|QD)[A-Za-zĐđ0-9_.\-&]*(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
 
-  // 3. Primary format with explicit "Số:" prefix and administrative abbreviations:
-  // Số: 4119/SKHCN-CNgSHTT, Số: 12/2024/NĐ-CP, Số: 45/TB-UBND, Số: 78/BC-STNMT, Số: 456/TTg
-  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9]{1,6}(?:\/[0-9]{2,4})?\s*\/\s*[A-Za-zĐđ0-9_.\-&]+(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
+  // 4. Đứng độc lập ở khối đầu văn bản (Văn bản Đảng không có chữ "Số:"):
+  // 05-HD/VPTW, 12-KL/TW, 52-NQ/TW, 01-CT/TW, 10-QĐ/TU
+  /(?:^|[\s,;:(])([0-9]{1,6}\s*[-–—]\s*(?:HD|KL|NQ|CT|QĐ|QD|BC|TB|KH|TTr|CV)(?:\s*[\/]\s*[A-Za-zĐđ0-9_.\-&]+)+)(?:[\s,;.)]|$)/i,
 
-  // 4. Standalone Decision Number in header zone without "Số:" prefix:
+  // 5. Đứng độc lập không có chữ "Số:" (Văn bản Nhà nước theo NĐ 30):
   // 123/QĐ-UBND, 1624/QĐ-TTg, 15/2024/QĐ-UBND, 45/QĐ-STNMT, 12/QD-UBND
   /(?:^|[\s,;:(])([0-9]{1,6}(?:\/[0-9]{2,4})?\s*\/\s*(?:QĐ|QD)(?:[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)+)(?:[\s,;.)]|$)/i,
 
-  // 5. Standalone document number patterns with administrative abbreviations (Decree 30/2020 standard):
+  // 6. Số hiệu văn bản hành chính theo từ viết tắt chuẩn (NĐ 30/2020):
   // 4119/SKHCN-CNgSHTT, 12/2024/NĐ-CP, 456/TTg, 789/BC-STNMT, 15/KH-UBND, 45/UBND-VHXH
   /(?:^|[\s,;:(])([0-9]{1,6}(?:\/[0-9]{4})?\s*\/\s*(?:QĐ|QD|NĐ-CP|ND-CP|TTg|TT|TB|BC|KH|NQ|CT|KL|HD|TTr|CV|GM|NQ-HĐND|UBND|SKHCN|STNMT|SNV|STC|SKHĐT|SNNPTNT|BCT|BCA|BQP|BYT|BGDĐT|BTTTT|VPCP|VP-UBND|TTr-[\w]+|BC-[\w]+|TB-[\w]+|QĐ-[\w]+|KH-[\w]+|HD-[\w]+|GM-[\w]+)[A-Za-zĐđ0-9_.\-&]*)(?:[\s,;.)]|$)/i,
 
-  // 6. General fallback: Number / Acronym-SubAcronym, e.g. 4119/SKHCN-CNgSHTT, 123/UBND-VX
+  // 7. General fallback: Number / Acronym-SubAcronym, e.g. 4119/SKHCN-CNgSHTT, 123/UBND-VX
   /(?:^|[\s,;:(])([0-9]{1,6}\s*\/\s*[A-Za-zĐđ0-9]{2,12}(?:\s*[-–—]\s*[A-Za-zĐđ0-9&]{2,14})+)(?:[\s,;.)]|$)/
 ];
 
@@ -524,6 +528,62 @@ export function extractLine3HeaderDirectly(lines: string[]): {
           }
         }
       }
+    }
+  }
+
+  // Fallback: Nếu một trong hai trường (số hiệu hoặc ngày tháng) không nằm cùng dòng thứ 3 (do định dạng tách khối tuần tự),
+  // quét các dòng trong vùng tiêu đề (15 dòng đầu) để luôn bắt trọn cả số hiệu và ngày tháng:
+  if (!docNumber) {
+    for (let i = 0; i < Math.min(lines.length, 18); i++) {
+      const line = lines[i].trim();
+      if (issueDate && line.includes(issueDate)) continue;
+      if (/^(?:QUYẾT\s*ĐỊNH|THÔNG\s*BÁO|KẾ\s*HOẠCH|BÁO\s*CÁO|CHỈ\s*THỊ|NGHỊ\s*QUYẾT|V\/v|Về\s*việc)/i.test(line)) break;
+      for (const pattern of DOC_NUMBER_PATTERNS) {
+        const match = line.match(pattern);
+        if (match && match[1]) {
+          const norm = normalizeDocNumber(match[1]);
+          if (isValidDocNumber(norm)) {
+            docNumber = norm;
+            break;
+          }
+        }
+      }
+      if (docNumber) break;
+    }
+  }
+
+  if (!issueDate) {
+    for (let i = 0; i < Math.min(lines.length, 18); i++) {
+      const line = lines[i].trim();
+      if (docNumber && line.includes(docNumber)) continue;
+      if (/^(?:QUYẾT\s*ĐỊNH|THÔNG\s*BÁO|KẾ\s*HOẠCH|BÁO\s*CÁO|CHỈ\s*THỊ|NGHỊ\s*QUYẾT|V\/v|Về\s*việc)/i.test(line)) break;
+
+      if (!location) {
+        const locMatch = line.match(LOCATION_PATTERN);
+        if (locMatch && locMatch[1]) {
+          const cleanLoc = locMatch[1].replace(/^[^\w\s]+/, '').replace(/[.,;:\s]+$/, '').trim();
+          if (cleanLoc.length > 1 && cleanLoc.length < 35 && !NATIONAL_MOTTO_PATTERNS.some(p => p.test(cleanLoc))) {
+            location = cleanLoc;
+          }
+        }
+      }
+
+      for (const pattern of DATE_PATTERNS) {
+        const match = line.match(pattern);
+        if (match && match[1] && match[2] && match[3]) {
+          const day = match[1].padStart(2, '0');
+          const month = match[2].padStart(2, '0');
+          const year = match[3];
+          const dayNum = parseInt(day, 10);
+          const monthNum = parseInt(month, 10);
+          const yearNum = parseInt(year, 10);
+          if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12 && yearNum >= 1975 && yearNum <= 2045) {
+            issueDate = `${day}/${month}/${year}`;
+            break;
+          }
+        }
+      }
+      if (issueDate) break;
     }
   }
 

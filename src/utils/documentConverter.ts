@@ -131,6 +131,7 @@ export async function processDocument(
       progress: { stage: 'Hoàn thành 100%', percent: 100, totalPages },
       metadata,
       markdownOutput: finalMarkdown,
+      rawText: rawMarkdown,
       previewThumbnails: thumbnails,
       executionTimeMs
     };
