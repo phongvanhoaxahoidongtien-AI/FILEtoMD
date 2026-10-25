@@ -19,30 +19,30 @@ import { AdminMetadata } from '../types';
 // Tuân thủ đầy đủ 29 loại văn bản hành chính (NĐ 30/2020/NĐ-CP) và 15 loại văn bản Đảng (HD 05-HD/VPTW)
 export const DOC_NUMBER_PATTERNS = [
   // 1. Văn bản Đảng (theo Hướng dẫn 05-HD/VPTW): Số: 05-HD/VPTW, Số: 12-KL/TW, Số: 52-NQ/TW, Số: 01-CT/TW, Số: 10-QĐ/TU, Số: 15-BC/ĐU
-  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9\s]{0,6}\s*[-–—]\s*[A-Za-zĐđ0-9&]+(?:\s*[\/]\s*[A-Za-zĐđ0-9_.\-&]+)+)/i,
+  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|S6|Sõ|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9\s]{0,6}\s*[-–—]\s*[A-Za-zĐđ0-9&]+(?:\s*[\/\\|\]]\s*[A-Za-zĐđ0-9_.\-&]+)+)/i,
 
   // 2. Văn bản hành chính có tiền tố "Số:" (Nghị định 30/2020/NĐ-CP) - gồm cả số đã điền và mẫu để trống số:
   // Số: 123/QĐ-UBND, Số: 45/UBND-VHXH, Số:     /UBND-VHXH, Số:   /BC-UBND, Số:   /KH-UBND, Số: 12/2024/NĐ-CP
-  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9\s]{0,6}(?:\/[0-9]{2,4})?\s*\/\s*[A-Za-zĐđ0-9_.\-&]+(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
+  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|S6|Sõ|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9\s]{0,6}(?:\/[0-9]{2,4})?\s*[\/\\|\]]\s*[A-Za-zĐđ0-9_.\-&]+(?:\s*[-–—/\\|]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
 
   // 3. Văn bản hành chính có tiền tố Quyết định đặc thù:
   // Số: 123/QĐ-UBND, Số: 1624/QĐ-TTg, Số: 25/2024/QĐ-UBND, Số: 45/QĐ-CTUBND, Số: 12/QD-UBND
-  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9]{1,6}(?:\/[0-9]{2,4})?\s*\/\s*(?:QĐ|QD)[A-Za-zĐđ0-9_.\-&]*(?:\s*[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
+  /(?:^|[\n\r]|[^a-zA-Z0-9_đĐà-ỹ])(?:Số|So|SỐ|SO|Sô|Số|S0|S6|Sõ|No\.?|Ký\s*hiệu|Số\s*ký\s*hiệu|Số\s*\/\s*No\.?)\s*[:;.\s\-]*\s*([0-9]{1,6}(?:\/[0-9]{2,4})?\s*[\/\\|\]]\s*(?:QĐ|QD)[A-Za-zĐđ0-9_.\-&]*(?:\s*[-–—/\\|]\s*[A-Za-zĐđ0-9_.\-&]+)*)/i,
 
   // 4. Đứng độc lập ở khối đầu văn bản (Văn bản Đảng không có chữ "Số:"):
   // 05-HD/VPTW, 12-KL/TW, 52-NQ/TW, 01-CT/TW, 10-QĐ/TU
-  /(?:^|[\s,;:(])([0-9]{1,6}\s*[-–—]\s*(?:HD|KL|NQ|CT|QĐ|QD|BC|TB|KH|TTr|CV)(?:\s*[\/]\s*[A-Za-zĐđ0-9_.\-&]+)+)(?:[\s,;.)]|$)/i,
+  /(?:^|[\s,;:(])([0-9]{1,6}\s*[-–—]\s*(?:HD|KL|NQ|CT|QĐ|QD|BC|TB|KH|TTr|CV)(?:\s*[\/\\|]\s*[A-Za-zĐđ0-9_.\-&]+)+)(?:[\s,;.)]|$)/i,
 
   // 5. Đứng độc lập không có chữ "Số:" (Văn bản Nhà nước theo NĐ 30):
   // 123/QĐ-UBND, 1624/QĐ-TTg, 15/2024/QĐ-UBND, 45/QĐ-STNMT, 12/QD-UBND
-  /(?:^|[\s,;:(])([0-9]{1,6}(?:\/[0-9]{2,4})?\s*\/\s*(?:QĐ|QD)(?:[-–—/]\s*[A-Za-zĐđ0-9_.\-&]+)+)(?:[\s,;.)]|$)/i,
+  /(?:^|[\s,;:(])([0-9]{1,6}(?:\/[0-9]{2,4})?\s*[\/\\|]\s*(?:QĐ|QD)(?:[-–—/\\|]\s*[A-Za-zĐđ0-9_.\-&]+)+)(?:[\s,;.)]|$)/i,
 
   // 6. Số hiệu văn bản hành chính theo từ viết tắt chuẩn (NĐ 30/2020):
   // 4119/SKHCN-CNgSHTT, 12/2024/NĐ-CP, 456/TTg, 789/BC-STNMT, 15/KH-UBND, 45/UBND-VHXH
-  /(?:^|[\s,;:(])([0-9]{1,6}(?:\/[0-9]{4})?\s*\/\s*(?:QĐ|QD|NĐ-CP|ND-CP|TTg|TT|TB|BC|KH|NQ|CT|KL|HD|TTr|CV|GM|NQ-HĐND|UBND|SKHCN|STNMT|SNV|STC|SKHĐT|SNNPTNT|BCT|BCA|BQP|BYT|BGDĐT|BTTTT|VPCP|VP-UBND|TTr-[\w]+|BC-[\w]+|TB-[\w]+|QĐ-[\w]+|KH-[\w]+|HD-[\w]+|GM-[\w]+)[A-Za-zĐđ0-9_.\-&]*)(?:[\s,;.)]|$)/i,
+  /(?:^|[\s,;:(])([0-9]{1,6}(?:\/[0-9]{4})?\s*[\/\\|]\s*(?:QĐ|QD|NĐ-CP|ND-CP|TTg|TT|TB|BC|KH|NQ|CT|KL|HD|TTr|CV|GM|NQ-HĐND|UBND|SKHCN|STNMT|SNV|STC|SKHĐT|SNNPTNT|BCT|BCA|BQP|BYT|BGDĐT|BTTTT|VPCP|VP-UBND|TTr-[\w]+|BC-[\w]+|TB-[\w]+|QĐ-[\w]+|KH-[\w]+|HD-[\w]+|GM-[\w]+)[A-Za-zĐđ0-9_.\-&]*)(?:[\s,;.)]|$)/i,
 
   // 7. General fallback: Number / Acronym-SubAcronym, e.g. 4119/SKHCN-CNgSHTT, 123/UBND-VX
-  /(?:^|[\s,;:(])([0-9]{1,6}\s*\/\s*[A-Za-zĐđ0-9]{2,12}(?:\s*[-–—]\s*[A-Za-zĐđ0-9&]{2,14})+)(?:[\s,;.)]|$)/
+  /(?:^|[\s,;:(])([0-9]{1,6}\s*[\/\\|]\s*[A-Za-zĐđ0-9]{2,12}(?:\s*[-–—]\s*[A-Za-zĐđ0-9&]{2,14})+)(?:[\s,;.)]|$)/
 ];
 
 // Regex for Dates in Vietnamese administrative texts
@@ -105,20 +105,61 @@ export function cleanAgencyName(text: string): string {
 }
 
 /**
+ * Sửa các lỗi nhầm lẫn ký tự OCR phổ biến trong số hiệu văn bản trước khi trích xuất:
+ * - Dấu gạch chéo nhầm thành \, |, ], l
+ * - Tiền tố "Số" nhầm thành Sô, Số, SO, S0, S6, Sõ, Số., SO:
+ * - Ký tự viết tắt nhầm: QD -> QĐ, ND-CP -> NĐ-CP, HDND -> HĐND, HD-CP -> HĐ-CP
+ * - Tự động cắt bỏ các từ ngữ dính đuôi (ngày..., V/v..., Kèm theo...)
+ */
+export function fixDocNumberOCRErrors(text: string): string {
+  if (!text) return '';
+  let fixed = text.trim();
+
+  // 1. Chuẩn hóa tiền tố "Số:"
+  fixed = fixed.replace(/(?:^|[\s,;:(])(?:Số|So|SỐ|SO|Sô|Số|S0|S6|Sõ|No|N0)\s*[:;.\s\-]+/i, 'Số: ');
+
+  // 2. Sửa lỗi OCR đọc nhầm dấu gạch chéo / thành \, |, ], l giữa phần số và chữ
+  fixed = fixed.replace(/([0-9\s]{1,6})[\\|\]](\s*[A-Za-zĐđ])/g, '$1/$2');
+  fixed = fixed.replace(/([0-9\s]{1,6})l([A-ZĐ]{2,})/g, '$1/$2');
+
+  // 3. Chuẩn hóa các từ viết tắt cơ quan/loại văn bản thường gặp
+  fixed = fixed
+    .replace(/\/QD([A-Z\-])/gi, '/QĐ$1')
+    .replace(/\/QD$/gi, '/QĐ')
+    .replace(/\/ND-CP/gi, '/NĐ-CP')
+    .replace(/\/HD-CP/gi, '/HĐ-CP')
+    .replace(/\/HDND/gi, '/HĐND')
+    .replace(/UB\s*ND/gi, 'UBND')
+    .replace(/UB\s*NO/gi, 'UBND');
+
+  // 4. Cắt bỏ các từ ngữ hành chính dính đuôi số hiệu
+  fixed = fixed.replace(/\s+(?:ngày|ngay|tháng|thang|năm|nam|V\/v|Về việc|Kèm theo|kèm theo|\(|\[).*/i, '');
+
+  return fixed;
+}
+
+/**
  * Validates that a string looks like a legitimate administrative document number
- * Supports both assigned numbers (e.g. 123/QĐ-UBND) and template placeholders (e.g. /UBND-VHXH)
+ * Supports both assigned numbers (e.g. 123/QĐ-UBND, 05-HD/VPTW) and template placeholders (e.g. /UBND-VHXH)
  */
 export function isValidDocNumber(num: string): boolean {
-  if (!num || num.length < 3 || num.length > 55) return false;
-  // Must contain a slash
-  if (!num.includes('/')) return false;
-  // Must contain letters (e.g. QĐ, SKHCN, NĐ-CP, TTg, UBND, BC, KH, TTr...)
-  if (!/[A-Za-zĐđ]/.test(num)) return false;
+  if (!num) return false;
+  const trimmed = num.trim();
+  if (trimmed.length < 3 || trimmed.length > 55) return false;
+
+  // Must contain a slash (standard for state and party docs)
+  if (!trimmed.includes('/') && !trimmed.includes('\\') && !trimmed.includes('|')) return false;
+
+  // Must contain letters of administrative acronyms (e.g. QĐ, SKHCN, NĐ-CP, TTg, UBND, BC, KH, TTr, HD, KL, NQ, CT...)
+  if (!/[A-Za-zĐđ]/.test(trimmed)) return false;
+
   // Do not accept strings that are pure dates or web URLs
-  if (/^https?:\/\//i.test(num)) return false;
-  if (/^(?:ngày|ngay)\s+\d/i.test(num)) return false;
+  if (/^https?:\/\//i.test(trimmed)) return false;
+  if (/^(?:ngày|ngay)\s+\d/i.test(trimmed)) return false;
+
   // Do not accept partial matches ending with dangling hyphen or slash
-  if (/[-–—/]$/.test(num.trim())) return false;
+  if (/[-–—/\\|]$/.test(trimmed)) return false;
+
   return true;
 }
 
@@ -126,17 +167,44 @@ export function isValidDocNumber(num: string): boolean {
  * Normalizes document number (fixing OCR character confusion and abnormal spacing)
  */
 export function normalizeDocNumber(rawNum: string): string {
-  let cleaned = rawNum.trim()
+  let cleaned = fixDocNumberOCRErrors(rawNum.trim());
+
+  // Remove leading "Số:" prefix if present
+  cleaned = cleaned.replace(/^(?:Số|So|SỐ|SO|Sô|Số|S0|S6|Sõ|No\.?|Ký\s*hiệu)\s*[:;.\s\-]*\s*/i, '');
+
+  // Truncate any trailing words
+  cleaned = cleaned.replace(/\s+(?:ngày|ngay|tháng|thang|năm|nam|V\/v|Về việc|Kèm theo|kèm theo|\(|\[).*/i, '');
+
+  cleaned = cleaned
     .replace(/[.,;:\s]+$/, '')
-    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s*[\/\\|]\s*/g, '/')
     .replace(/\s*[-–—]\s*/g, '-')
-    .replace(/\s+/g, ' ');
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Fix OCR confusion: letter O in number position (e.g. O5/UBND -> 05/UBND, 2O24 -> 2024)
+  cleaned = cleaned.replace(/^O([0-9])\//i, '0$1/');
+  cleaned = cleaned.replace(/^\/O([0-9])/i, '/0$1');
+  cleaned = cleaned.replace(/\/2O2([0-9])\//i, '/202$1/');
+
+  // Fix OCR confusion: letter l/I in number position (e.g. l5/UBND -> 15/UBND)
+  cleaned = cleaned.replace(/^[lI]([0-9])\//i, '1$1/');
+
+  // Standardize administrative acronyms capitalization (e.g. /ubnd-vhxh -> /UBND-VHXH)
+  cleaned = cleaned.replace(/\/([a-zđ0-9_\-]+)/i, (_match, p1) => {
+    return '/' + p1.toUpperCase();
+  });
 
   // Standardize QĐ (Decision) where OCR might produce QD or QÐ
   cleaned = cleaned.replace(/\/QD-/i, '/QĐ-').replace(/\/QD([A-Z])/i, '/QĐ-$1');
 
-  // If number part is blank (e.g. "/UBND-VHXH"), format neatly with spacing
-  if (cleaned.startsWith('/')) {
+  // Standardize Party documents (e.g. 05-hd/vptw -> 05-HD/VPTW)
+  cleaned = cleaned.replace(/^([0-9\s]{1,6})-([A-Za-zĐđ0-9&]+)\/([A-Za-zĐđ0-9_.\-&]+)/i, (_m, p1, p2, p3) => {
+    return `${p1.trim()}-${p2.toUpperCase()}/${p3.toUpperCase()}`;
+  });
+
+  // If number part is blank (e.g. "/UBND-VHXH" or "-HD/VPTW"), format neatly with spacing
+  if (cleaned.startsWith('/') || cleaned.startsWith('-')) {
     cleaned = `     ${cleaned}`;
   }
 
@@ -151,9 +219,9 @@ function mergeMultilineDocNumberLines(lines: string[]): string[] {
   for (let i = 0; i < lines.length; i++) {
     const current = lines[i].trim();
     // If current line is just "Số:" or "Số" or "No." without the number
-    if (/^(?:Số|So|SỐ|SO|Sô|Số|S0|No\.?|Số\s*\/\s*No\.?)[:;.\s\-]*$/i.test(current) && i + 1 < lines.length) {
+    if (/^(?:Số|So|SỐ|SO|Sô|Số|S0|S6|Sõ|No\.?|Số\s*\/\s*No\.?)[:;.\s\-]*$/i.test(current) && i + 1 < lines.length) {
       const nextLine = lines[i + 1].trim();
-      if (/^\d{1,6}/.test(nextLine) && nextLine.includes('/')) {
+      if (nextLine.includes('/') || nextLine.includes('\\') || nextLine.includes('|')) {
         merged.push(`Số: ${nextLine}`);
         i++; // skip next line as it was merged
         continue;

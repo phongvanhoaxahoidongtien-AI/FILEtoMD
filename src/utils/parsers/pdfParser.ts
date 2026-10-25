@@ -7,6 +7,10 @@ import {
   extractFromTwoColumns,
   extractVietnameseAdminMetadata
 } from '../vietnameseAdminExtractor';
+import {
+  enhanceFullPageCanvasForScanOCR,
+  structureScannedOCRToMarkdown
+} from '../scanOCREnhancer';
 
 // Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -428,9 +432,9 @@ export async function parsePDFDocument(
         }
       }
 
-      // Full page OCR
+      // Full page OCR with Adaptive Contrast Enhancement & Red Stamp Removal
       onProgress({
-        stage: `Đang quét OCR toàn bộ trang ${pageNum}...`,
+        stage: `Đang xử lý hình ảnh & quét OCR toàn bộ trang ${pageNum}...`,
         percent: pagePercent,
         currentPage: pageNum,
         totalPages
@@ -440,12 +444,17 @@ export async function parsePDFDocument(
         onProgress({ stage: `Trang ${pageNum}: ${msg}`, percent: pagePercent, currentPage: pageNum, totalPages });
       });
 
-      const fullPageOcr = await ocrWorker.recognize(canvas);
-      pageText = fullPageOcr.data.text;
+      // Tiền xử lý canvas toàn trang: tẩy trắng nền ố vàng, khử con dấu đỏ đè chữ, làm đậm nét chữ tiếng Việt
+      const enhancedCanvas = enhanceFullPageCanvasForScanOCR(canvas);
+      const fullPageOcr = await ocrWorker.recognize(enhancedCanvas);
+      const rawOcrText = fullPageOcr.data.text;
+
+      // Cấu trúc hóa text OCR thô thành Markdown hoàn chỉnh (tiêu đề, căn cứ, điều khoản, bảng biểu, chữ ký)
+      pageText = structureScannedOCRToMarkdown(rawOcrText, pageNum);
 
       // Extract general metadata if page 1 didn't find everything
       if (pageNum === 1 && (!detectedMetadata.documentNumber || !detectedMetadata.issueDate)) {
-        const fullMeta = extractVietnameseAdminMetadata(pageText);
+        const fullMeta = extractVietnameseAdminMetadata(rawOcrText);
         if (fullMeta.documentNumber && !detectedMetadata.documentNumber) {
           detectedMetadata.documentNumber = fullMeta.documentNumber;
         }

@@ -1,6 +1,7 @@
 import { createWorker } from 'tesseract.js';
 import { AdminMetadata, ConversionOptions, ProcessingProgress } from '../../types';
 import { extractVietnameseAdminMetadata, cropHeaderCanvas } from '../vietnameseAdminExtractor';
+import { enhanceFullPageCanvasForScanOCR, structureScannedOCRToMarkdown } from '../scanOCREnhancer';
 
 export interface ImageParseResult {
   markdown: string;
@@ -13,7 +14,7 @@ export async function parseImageDocument(
   options: ConversionOptions,
   onProgress: (progress: ProcessingProgress) => void
 ): Promise<ImageParseResult> {
-  onProgress({ stage: 'Đang chuẩn bị hình ảnh...', percent: 10 });
+  onProgress({ stage: 'Đang chuẩn bị hình ảnh scan...', percent: 10 });
 
   // Read image to HTMLImageElement
   const objectUrl = URL.createObjectURL(file);
@@ -24,8 +25,8 @@ export async function parseImageDocument(
     image.src = objectUrl;
   });
 
-  // Scale resolution according to mode
-  const scale = options.resolutionMode === 'fast' ? 1.0 : options.resolutionMode === 'high' ? 2.0 : 1.5;
+  // Tăng scale độ phân giải cho ảnh scan để không mất dấu tiếng Việt
+  const scale = options.resolutionMode === 'fast' ? 1.5 : options.resolutionMode === 'high' ? 2.5 : 2.0;
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(img.naturalWidth * scale);
   canvas.height = Math.round(img.naturalHeight * scale);
@@ -36,6 +37,8 @@ export async function parseImageDocument(
     throw new Error('Không thể khởi tạo Canvas context.');
   }
 
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   URL.revokeObjectURL(objectUrl);
 
@@ -48,11 +51,14 @@ export async function parseImageDocument(
     ? 'eng'
     : 'vie';
 
-  // 1. If Prioritize Administrative Metadata is ON, run targeted crop on top 25%
+  // 1. Tiền xử lý canvas toàn trang: Khử dấu mộc đỏ đè chữ, tẩy trắng nền scan, làm đậm nét chữ tiếng Việt
+  const enhancedCanvas = enhanceFullPageCanvasForScanOCR(canvas);
+
+  // 2. If Prioritize Administrative Metadata is ON, run targeted crop on top 28%
   if (options.prioritizeAdminMetadata) {
     onProgress({ stage: 'Đang nhận dạng vùng số hiệu & cơ quan ban hành...', percent: 25 });
     try {
-      const headerCanvas = cropHeaderCanvas(canvas, 0.25);
+      const headerCanvas = cropHeaderCanvas(enhancedCanvas, 0.28);
       const headerWorker = await createWorker(tesseractLang, 1);
       const headerResult = await headerWorker.recognize(headerCanvas);
       await headerWorker.terminate();
@@ -66,14 +72,14 @@ export async function parseImageDocument(
     }
   }
 
-  // 2. Full image OCR
-  onProgress({ stage: 'Đang OCR toàn bộ ảnh bằng Tesseract...', percent: 45 });
+  // 3. Full image OCR trên enhancedCanvas
+  onProgress({ stage: 'Đang OCR toàn bộ ảnh scan bằng Tesseract nâng cao...', percent: 45 });
   const worker = await createWorker(tesseractLang, 1, {
     logger: (m) => {
       if (m.status === 'recognizing text' && m.progress !== undefined) {
         const ocrProg = Math.round(m.progress * 100);
         onProgress({
-          stage: `Đang nhận diện chữ trong ảnh (${ocrProg}%)...`,
+          stage: `Đang nhận diện chữ trong ảnh scan (${ocrProg}%)...`,
           percent: 45 + Math.round(ocrProg * 0.45),
           ocrProgress: ocrProg
         });
@@ -81,10 +87,13 @@ export async function parseImageDocument(
     }
   });
 
-  const fullResult = await worker.recognize(canvas);
+  const fullResult = await worker.recognize(enhancedCanvas);
   await worker.terminate();
 
   const rawText = fullResult.data.text;
+
+  // Cấu trúc hóa text OCR thô thành Markdown hoàn chỉnh (tiêu đề, căn cứ, điều khoản, bảng biểu, chữ ký)
+  const structuredMarkdown = structureScannedOCRToMarkdown(rawText);
 
   // Enhance metadata if not already confident
   if ((metadata.confidenceScore || 0) < 50) {
@@ -94,10 +103,10 @@ export async function parseImageDocument(
     }
   }
 
-  onProgress({ stage: 'Hoàn tất OCR ảnh.', percent: 100 });
+  onProgress({ stage: 'Hoàn tất OCR ảnh scan.', percent: 100 });
 
   return {
-    markdown: rawText.trim(),
+    markdown: structuredMarkdown || rawText.trim(),
     metadata,
     thumbnail
   };
